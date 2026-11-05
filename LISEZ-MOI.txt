@@ -1,25 +1,20 @@
-GSINFO — VERSION 2
-==================
+GSINFO — CATALOGUE DU SITE
 
-Fichiers :
-- index.html : page du site
-- style.css : design bleu nuit et cyan, responsive
-- script.js : petite fonction d'affichage de l'année
-
-Publication GitHub Pages :
-1. Décompressez le ZIP.
-2. Dans le dépôt GitHub public "mon-site", onglet Code > Add file > Upload files.
-3. Téléversez index.html, style.css et script.js directement à la racine (pas le dossier).
-4. Cliquez sur Commit changes.
-5. Settings > Pages : Deploy from a branch, main, /(root), Save.
-6. Attendez le déploiement puis ouvrez https://gsinfo2.github.io/mon-site/
-
-Contact inclus :
-Gsinfo, Rue Sidi Zitouni, Houmet Souk, Djerba
-Téléphone : 98 612 977
-WhatsApp : +216 98 612 977
+Fichiers à téléverser dans le dépôt GitHub "mon-site" :
+- index.html
+- style.css
+- script.js
+- le dossier images (avec les deux photos)
 
 IMPORTANT :
-Les catégories sont présentées sans faux prix ni fausses disponibilités.
-Pour afficher des produits précis, ajoutez ensuite leurs vraies photos, modèles,
-caractéristiques et prix en DT.
+1. Ouvrir le dépôt https://github.com/Gsinfo2/mon-site
+2. Cliquer sur Add file > Upload files.
+3. Envoyer les trois fichiers et le dossier images (pas le ZIP lui-même).
+4. Cliquer sur Commit changes.
+5. Attendre quelques minutes puis ouvrir https://gsinfo2.github.io/mon-site/
+
+Les deux produits affichés :
+- ASUS X Series : 650 DT, batterie HS.
+- MacBook Pro 2011 : 450 DT, batterie en bon état.
+
+Les boutons Demander ouvrent WhatsApp au numéro de Gsinfo.
