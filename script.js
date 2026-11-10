@@ -29,7 +29,7 @@ async function loadCatalog() {
       available: column(['disponible', 'disponibilite', 'available', 'en vente'])
     };
     if (columns.name < 0 || columns.price < 0) {
-      throw new Error('Vérifiez les colonnes Nom et Prix dans la première ligne de votre feuille.');
+      throw new Error(`Colonnes reçues : ${headers.join(' | ') || 'aucune'}`);
     }
 
     const products = rows.slice(1).map((row, index) => ({
@@ -58,7 +58,9 @@ async function loadCatalog() {
   } catch (error) {
     console.error('Impossible de charger le catalogue Google Sheets :', error);
     productGrid.replaceChildren();
-    if (message) message.textContent = 'Le catalogue n’a pas pu être chargé. Vérifiez que la feuille est publiée au format CSV et que les colonnes Nom et Prix sont présentes.';
+    if (message) message.textContent = error.message.startsWith('Colonnes reçues :')
+      ? `La feuille est lue, mais ses en-têtes ne sont pas séparés correctement. ${error.message}`
+      : 'Le catalogue n’a pas pu être chargé. Vérifiez que la feuille est publiée au format CSV et que les colonnes Nom et Prix sont présentes.';
   } finally {
     productGrid.setAttribute('aria-busy', 'false');
   }
@@ -66,7 +68,9 @@ async function loadCatalog() {
 
 function parseCsv(text) {
   const firstLine = text.split(/\r?\n/, 1)[0] || '';
-  const delimiter = (firstLine.match(/;/g) || []).length > (firstLine.match(/,/g) || []).length ? ';' : ',';
+  const candidates = [',', ';', '\t', '|'];
+  const delimiter = candidates.reduce((best, candidate) =>
+    countOutsideQuotes(firstLine, candidate) > countOutsideQuotes(firstLine, best) ? candidate : best, ',');
   const rows = [];
   let row = [];
   let value = '';
@@ -97,8 +101,23 @@ function parseCsv(text) {
   return rows;
 }
 
+function countOutsideQuotes(text, delimiter) {
+  let count = 0;
+  let quoted = false;
+  for (let index = 0; index < text.length; index += 1) {
+    if (text[index] === '"' && text[index + 1] === '"' && quoted) {
+      index += 1;
+    } else if (text[index] === '"') {
+      quoted = !quoted;
+    } else if (text[index] === delimiter && !quoted) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
 function normalizeHeader(value) {
-  return value.trim().toLocaleLowerCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
+  return value.trim().replace(/^\|+|\|+$/g, '').trim().toLocaleLowerCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
 }
 
 function cell(row, index) {
@@ -195,8 +214,6 @@ function createProductCard(product) {
 function normalizePhotoUrl(value) {
   const raw = value.trim();
   if (!raw) return null;
-
-  // Accept a plain URL or a URL pasted with surrounding text/quotes in the sheet.
   const match = raw.match(/https?:\/\/[^\s"'<>]+/i);
   if (!match) return null;
 
