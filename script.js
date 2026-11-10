@@ -12,6 +12,7 @@ async function loadCatalog() {
   try {
     const response = await fetch(CATALOG_CSV_URL, { cache: 'no-store' });
     if (!response.ok) throw new Error(`Réponse HTTP ${response.status}`);
+
     const csv = (await response.text()).replace(/^\uFEFF/, '');
     const rows = parseCsv(csv);
     if (rows.length < 2) throw new Error('La feuille ne contient encore aucun article.');
@@ -24,7 +25,7 @@ async function loadCatalog() {
       price: column(['prix', 'price']),
       condition: column(['etat', 'condition', 'statut']),
       description: column(['description', 'details', 'specifications']),
-      photo: column(['photo', 'image', 'photo url', 'lien photo']),
+      photo: column(['photo', 'image', 'photo url', 'url photo', 'url image', 'lien photo', 'lien de la photo', 'photo (url)', 'image url']),
       available: column(['disponible', 'disponibilite', 'available', 'en vente'])
     };
     if (columns.name < 0 || columns.price < 0) {
@@ -44,24 +45,28 @@ async function loadCatalog() {
 
     productGrid.replaceChildren();
     if (!products.length) {
-      message.textContent = 'Aucun article disponible pour le moment. Revenez bientôt !';
+      if (message) message.textContent = 'Aucun article disponible pour le moment. Revenez bientôt !';
       return;
     }
 
     const fragment = document.createDocumentFragment();
     products.forEach((product) => fragment.appendChild(createProductCard(product)));
     productGrid.appendChild(fragment);
-    message.textContent = '';
+    if (message) message.textContent = columns.photo < 0
+      ? 'Les articles sont chargés, mais la feuille ne contient pas de colonne Photo reconnue. Nommez cette colonne « Photo ».'
+      : '';
   } catch (error) {
     console.error('Impossible de charger le catalogue Google Sheets :', error);
     productGrid.replaceChildren();
-    message.textContent = 'Le catalogue n’a pas pu être chargé. Vérifiez que la feuille est publiée sur le Web au format CSV et que les colonnes Nom et Prix sont présentes.';
+    if (message) message.textContent = 'Le catalogue n’a pas pu être chargé. Vérifiez que la feuille est publiée au format CSV et que les colonnes Nom et Prix sont présentes.';
   } finally {
     productGrid.setAttribute('aria-busy', 'false');
   }
 }
 
 function parseCsv(text) {
+  const firstLine = text.split(/\r?\n/, 1)[0] || '';
+  const delimiter = (firstLine.match(/;/g) || []).length > (firstLine.match(/,/g) || []).length ? ';' : ',';
   const rows = [];
   let row = [];
   let value = '';
@@ -74,13 +79,13 @@ function parseCsv(text) {
       index += 1;
     } else if (char === '"') {
       quoted = !quoted;
-    } else if (char === ',' && !quoted) {
+    } else if (char === delimiter && !quoted) {
       row.push(value.trim());
       value = '';
     } else if ((char === '\n' || char === '\r') && !quoted) {
       if (char === '\r' && text[index + 1] === '\n') index += 1;
       row.push(value.trim());
-      if (row.some((cellValue) => cellValue !== '')) rows.push(row);
+      if (row.some((item) => item !== '')) rows.push(row);
       row = [];
       value = '';
     } else {
@@ -88,12 +93,12 @@ function parseCsv(text) {
     }
   }
   row.push(value.trim());
-  if (row.some((cellValue) => cellValue !== '')) rows.push(row);
+  if (row.some((item) => item !== '')) rows.push(row);
   return rows;
 }
 
 function normalizeHeader(value) {
-  return value.trim().toLocaleLowerCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return value.trim().toLocaleLowerCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
 }
 
 function cell(row, index) {
@@ -108,21 +113,31 @@ function isAvailable(value) {
 function createProductCard(product) {
   const card = document.createElement('article');
   card.className = 'product-card';
-  const slug = `${slugify(product.name)}-${product.index + 1}`;
-  card.id = `article-${slug}`;
+  card.id = `article-${slugify(product.name)}-${product.index + 1}`;
 
-  const photoUrl = normalizePhotoUrl(product.photo);
-  if (photoUrl) {
+  const photo = normalizePhotoUrl(product.photo);
+  if (photo) {
     const photoLink = document.createElement('a');
     photoLink.className = 'product-photo';
-    photoLink.href = photoUrl;
+    photoLink.href = photo.link;
     photoLink.target = '_blank';
     photoLink.rel = 'noopener noreferrer';
+
     const image = document.createElement('img');
-    image.src = photoUrl;
+    image.src = photo.image;
     image.alt = product.name;
     image.loading = 'lazy';
-    image.onerror = () => { photoLink.remove(); };
+    image.onerror = () => {
+      if (photo.fallback && image.src !== photo.fallback) {
+        image.src = photo.fallback;
+        return;
+      }
+      photoLink.replaceChildren();
+      photoLink.removeAttribute('href');
+      photoLink.classList.add('photo-unavailable');
+      photoLink.textContent = 'Photo inaccessible — vérifiez le partage du fichier Drive';
+      console.warn(`Photo non chargée pour « ${product.name} »:`, photo.image);
+    };
     photoLink.appendChild(image);
     card.appendChild(photoLink);
   }
@@ -153,11 +168,11 @@ function createProductCard(product) {
   const price = document.createElement('strong');
   price.className = 'price';
   price.textContent = /\b(dt|tnd)\b/i.test(product.price) ? product.price : `${product.price} DT`;
-  priceWrap.appendChild(price);
+  priceWrap.append(price);
   const negotiable = document.createElement('span');
   negotiable.className = 'negotiable';
   negotiable.textContent = 'Contactez-nous pour plus de détails';
-  priceWrap.appendChild(negotiable);
+  priceWrap.append(negotiable);
 
   const contact = document.createElement('a');
   contact.className = 'small-button';
@@ -168,7 +183,7 @@ function createProductCard(product) {
   contact.dataset.price = price.textContent;
   contact.dataset.articleId = card.id;
   contact.setAttribute('aria-label', `Envoyer ${product.name} au prix de ${price.textContent} sur Messenger`);
-  contact.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg><span>Envoyer cet article</span>';
+  contact.textContent = 'Envoyer cet article';
   contact.addEventListener('click', prepareProductMessage);
 
   bottom.append(priceWrap, contact);
@@ -179,16 +194,29 @@ function createProductCard(product) {
 
 function normalizePhotoUrl(value) {
   const raw = value.trim();
-  if (!raw) return '';
+  if (!raw) return null;
+
+  // Accept a plain URL or a URL pasted with surrounding text/quotes in the sheet.
+  const match = raw.match(/https?:\/\/[^\s"'<>]+/i);
+  if (!match) return null;
+
   try {
-    const url = new URL(raw);
-    if (url.hostname === 'drive.google.com') {
-      const fileId = url.pathname.match(/\/file\/d\/([^/]+)/)?.[1] || url.searchParams.get('id');
-      if (fileId) return `https://drive.google.com/uc?export=view&id=${encodeURIComponent(fileId)}`;
+    const original = new URL(match[0].replace(/[),.;]+$/, ''));
+    const driveId = original.hostname.endsWith('google.com')
+      ? original.pathname.match(/\/file\/d\/([^/]+)/)?.[1] || original.searchParams.get('id')
+      : null;
+
+    if (driveId && (original.hostname === 'drive.google.com' || original.hostname === 'docs.google.com')) {
+      const id = encodeURIComponent(driveId);
+      return {
+        link: `https://drive.google.com/file/d/${id}/view`,
+        image: `https://drive.google.com/uc?export=view&id=${id}`,
+        fallback: `https://drive.google.com/thumbnail?id=${id}&sz=w1200`
+      };
     }
-    return url.href;
+    return { link: original.href, image: original.href, fallback: '' };
   } catch {
-    return '';
+    return null;
   }
 }
 
@@ -201,13 +229,10 @@ function prepareProductMessage(event) {
   const button = event.currentTarget;
   const articleUrl = new URL(`#${button.dataset.articleId}`, window.location.href).href;
   const message = `Bonjour Gsinfo, je suis intéressé(e) par : ${button.dataset.product} — ${button.dataset.price}. ${articleUrl}`;
-
-  // Open Messenger synchronously from the click; copy the precise item details for the customer to paste.
   window.open(button.href, '_blank', 'noopener,noreferrer');
   if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(message).then(() => {
-      showProductMessageNotice('Détails copiés ! Collez-les dans votre conversation Messenger.');
-    }).catch(() => window.prompt('Copiez les détails de l’article, puis collez-les dans Messenger :', message));
+    navigator.clipboard.writeText(message).then(() => showProductMessageNotice('Détails copiés ! Collez-les dans votre conversation Messenger.'))
+      .catch(() => window.prompt('Copiez les détails de l’article, puis collez-les dans Messenger :', message));
   } else {
     window.prompt('Copiez les détails de l’article, puis collez-les dans Messenger :', message);
   }
@@ -220,7 +245,7 @@ function showProductMessageNotice(text) {
     notice.id = 'product-message-notice';
     notice.setAttribute('role', 'status');
     notice.setAttribute('aria-live', 'polite');
-    notice.style.cssText = 'position:fixed;left:50%;bottom:24px;z-index:1000;max-width:calc(100% - 32px);padding:14px 20px;transform:translateX(-50%);border:1px solid rgba(215,181,116,.55);border-radius:12px;background:#171411;color:#f7f3eb;box-shadow:0 12px 36px rgba(0,0,0,.4);font:600 14px/1.5 sans-serif;text-align:center;';
+    notice.style.cssText = 'position:fixed;left:50%;bottom:24px;z-index:1000;max-width:calc(100% - 32px);padding:14px 20px;transform:translateX(-50%);border:1px solid rgba(255,118,38,.65);border-radius:12px;background:#0b2021;color:#f5f4ef;box-shadow:0 12px 36px rgba(0,0,0,.4);font:600 14px/1.5 sans-serif;text-align:center;';
     document.body.appendChild(notice);
   }
   notice.textContent = text;
