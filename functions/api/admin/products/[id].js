@@ -17,9 +17,8 @@ export async function onRequestPatch({ params, request, env }) {
 export async function onRequestDelete({ params, env }) {
   const id = Number(params.id);
   if (!Number.isSafeInteger(id) || id < 1) return json({ error: "Article invalide." }, 400);
-  const product = await env.DB.prepare("SELECT photo FROM products WHERE id = ?").bind(id).first();
+  const product = await env.DB.prepare("SELECT id FROM products WHERE id = ?").bind(id).first();
   if (!product) return json({ error: "Article introuvable." }, 404);
   await env.DB.prepare("DELETE FROM products WHERE id = ?").bind(id).run();
-  if (product.photo.startsWith("products-")) await env.PHOTOS.delete(product.photo);
   return json({ ok: true });
 }

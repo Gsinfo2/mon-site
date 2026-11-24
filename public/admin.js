@@ -67,6 +67,27 @@ async function loadProducts() {
   if (!products.length) productList.textContent = "Aucun article pour le moment.";
 }
 
+async function compressPhoto(file) {
+  const image = await createImageBitmap(file);
+  try {
+    const scale = Math.min(1, 1600 / Math.max(image.width, image.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    for (const type of ["image/webp", "image/jpeg"]) {
+      for (const quality of [0.82, 0.72, 0.62, 0.52, 0.42]) {
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, type, quality));
+        if (blob && blob.size <= 1_650_000) return blob;
+      }
+    }
+    throw new Error("Cette photo ne peut pas être réduite suffisamment. Essaie une autre photo.");
+  } finally {
+    image.close();
+  }
+}
+
 document.getElementById("login-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const error = document.getElementById("login-error");
@@ -89,9 +110,15 @@ document.getElementById("product-form").addEventListener("submit", async (event)
   event.preventDefault();
   statusMessage.textContent = "";
   try {
+    const formData = new FormData(event.currentTarget);
+    const photo = event.currentTarget.elements.photo.files[0];
+    if (photo) {
+      const compressed = await compressPhoto(photo);
+      formData.set("photo", compressed, compressed.type === "image/webp" ? "photo.webp" : "photo.jpg");
+    }
     await requestJson("/api/admin/products", {
       method: "POST",
-      body: new FormData(event.currentTarget),
+      body: formData,
     });
     event.currentTarget.reset();
     event.currentTarget.elements.available.checked = true;

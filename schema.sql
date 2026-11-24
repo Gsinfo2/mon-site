@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS products (
   condition TEXT NOT NULL DEFAULT '',
   description TEXT NOT NULL DEFAULT '',
   photo TEXT NOT NULL DEFAULT '',
+  photo_data BLOB,
+  photo_type TEXT,
   available INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

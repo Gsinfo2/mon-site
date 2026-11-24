@@ -10,9 +10,20 @@ if (productGrid) loadCatalog();
 async function loadCatalog() {
   const message = document.getElementById('catalog-message');
   try {
-    const response = await fetch(CATALOG_API_URL, { cache: 'no-store' });
-    if (!response.ok) throw new Error(`Réponse HTTP ${response.status}`);
-    const products = (await response.json()).map((product, index) => ({ ...product, index }));
+    let rows;
+    let usingFallback = false;
+    try {
+      const response = await fetch(CATALOG_API_URL, { cache: 'no-store' });
+      if (!response.ok) throw new Error(`Réponse HTTP ${response.status}`);
+      rows = await response.json();
+    } catch (apiError) {
+      const fallback = await fetch('./products.json', { cache: 'no-store' });
+      if (!fallback.ok) throw apiError;
+      rows = await fallback.json();
+      usingFallback = true;
+    }
+    if (!Array.isArray(rows)) throw new Error('Format de catalogue invalide.');
+    const products = rows.map((product, index) => ({ ...product, index }));
 
     productGrid.replaceChildren();
     if (!products.length) {
@@ -23,7 +34,9 @@ async function loadCatalog() {
     const fragment = document.createDocumentFragment();
     products.forEach((product) => fragment.appendChild(createProductCard(product)));
     productGrid.appendChild(fragment);
-    if (message) message.textContent = '';
+    if (message) message.textContent = usingFallback
+      ? 'Catalogue temporaire — la gestion en ligne sera disponible après la configuration.'
+      : '';
   } catch (error) {
     console.error('Impossible de charger le catalogue local :', error);
     productGrid.replaceChildren();
@@ -31,6 +44,11 @@ async function loadCatalog() {
   } finally {
     productGrid.setAttribute('aria-busy', 'false');
   }
+}
+
+const adminShortcut = document.querySelector('.admin-fab');
+if (adminShortcut && window.location.hostname.endsWith('github.io')) {
+  adminShortcut.hidden = true;
 }
 
 function createProductCard(product) {
