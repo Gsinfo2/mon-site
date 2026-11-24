@@ -1,0 +1,18 @@
+[
+  {
+    "name": "ASUS X Series",
+    "category": "PC portable",
+    "price": "650 DT",
+    "condition": "Batterie HS",
+    "description": "Ordinateur portable en bon état général.",
+    "photo": "asus-x-series.png"
+  },
+  {
+    "name": "MacBook Pro 2011",
+    "category": "PC portable",
+    "price": "450 DT",
+    "condition": "Batterie en bon état",
+    "description": "MacBook Pro avec batterie en bon état.",
+    "photo": "macbook-pro-2011.jpg"
+  }
+]

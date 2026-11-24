@@ -5,6 +5,7 @@ const allowedTypes = new Map([
   ["image/png", "png"],
   ["image/webp", "webp"],
 ]);
+const maxPhotoSize = 1_650_000;
 
 function hasValidSignature(type, bytes) {
   if (type === "image/png") {
@@ -21,16 +22,16 @@ function hasValidSignature(type, bytes) {
 
 export async function onRequestGet({ env }) {
   const { results } = await env.DB.prepare(
-    "SELECT * FROM products ORDER BY id DESC",
+    `SELECT id, name, category, price, condition, description, photo, available,
+            photo_data IS NOT NULL AS has_photo
+     FROM products ORDER BY id DESC`,
   ).all();
   return json(results.map((product) => ({
     ...product,
     available: Boolean(product.available),
-    photo: product.photo
-      ? product.photo.startsWith("products-")
-        ? `/api/photos/${encodeURIComponent(product.photo)}`
-        : `/${encodeURIComponent(product.photo)}`
-      : "",
+    photo: product.has_photo
+      ? `/api/photos/${product.id}`
+      : product.photo ? `/${encodeURIComponent(product.photo)}` : "",
   })));
 }
 
@@ -43,38 +44,34 @@ export async function onRequestPost({ request, env }) {
   }
 
   let photoKey = "";
+  let photoBytes = null;
+  let photoType = null;
   const photo = form.get("photo");
   if (photo instanceof File && photo.size > 0) {
-    if (photo.size > 10 * 1024 * 1024 || !allowedTypes.has(photo.type)) {
-      return json({ error: "Choisis une image PNG, JPG ou WEBP de 10 Mo maximum." }, 400);
+    if (photo.size > maxPhotoSize || !allowedTypes.has(photo.type)) {
+      return json({ error: "La photo est trop volumineuse. Réduis-la puis réessaie." }, 400);
     }
     const bytes = new Uint8Array(await photo.arrayBuffer());
     if (!hasValidSignature(photo.type, bytes)) {
       return json({ error: "Le fichier ne semble pas être une image valide." }, 400);
     }
-    photoKey = `products-${crypto.randomUUID()}.${allowedTypes.get(photo.type)}`;
-    await env.PHOTOS.put(photoKey, bytes, {
-      httpMetadata: { contentType: photo.type },
-    });
+    photoBytes = bytes;
+    photoType = photo.type;
   }
 
-  try {
-    await env.DB.prepare(
-      `INSERT INTO products
-       (name, category, price, condition, description, photo, available)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    ).bind(
-      name,
-      String(form.get("category") || "ARTICLE").trim().slice(0, 80),
-      price,
-      String(form.get("condition") || "").trim().slice(0, 120),
-      String(form.get("description") || "").trim().slice(0, 2000),
-      photoKey,
-      form.get("available") === "on" ? 1 : 0,
-    ).run();
-  } catch (error) {
-    if (photoKey) await env.PHOTOS.delete(photoKey);
-    throw error;
-  }
+  await env.DB.prepare(
+    `INSERT INTO products
+     (name, category, price, condition, description, photo, photo_data, photo_type, available)
+     VALUES (?, ?, ?, ?, ?, '', ?, ?, ?)`,
+  ).bind(
+    name,
+    String(form.get("category") || "ARTICLE").trim().slice(0, 80),
+    price,
+    String(form.get("condition") || "").trim().slice(0, 120),
+    String(form.get("description") || "").trim().slice(0, 2000),
+    photoBytes,
+    photoType,
+    form.get("available") === "on" ? 1 : 0,
+  ).run();
   return json({ ok: true }, 201);
 }
