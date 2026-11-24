@@ -1,4 +1,4 @@
-const CATALOG_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTSSFhM7HdoC95mzcZyNrllOkGSjQ99RRhxPkH-MlsxlceUzqkupuPR-8T3-F8OCH5rSsSUW2GYJ5YQ/pub?gid=0&single=true&output=csv';
+const CATALOG_API_URL = '/api/products';
 const MESSENGER_URL = 'https://m.me/gsinfo233';
 
 const yearElement = document.getElementById('year');
@@ -10,38 +10,9 @@ if (productGrid) loadCatalog();
 async function loadCatalog() {
   const message = document.getElementById('catalog-message');
   try {
-    const response = await fetch(CATALOG_CSV_URL, { cache: 'no-store' });
+    const response = await fetch(CATALOG_API_URL, { cache: 'no-store' });
     if (!response.ok) throw new Error(`Réponse HTTP ${response.status}`);
-
-    const csv = (await response.text()).replace(/^\uFEFF/, '');
-    const rows = parseCsv(csv);
-    if (rows.length < 2) throw new Error('La feuille ne contient encore aucun article.');
-
-    const headers = rows[0].map(normalizeHeader);
-    const column = (names) => headers.findIndex((header) => names.includes(header));
-    const columns = {
-      name: column(['nom', 'article', 'produit', 'name']),
-      category: column(['categorie', 'category', 'type']),
-      price: column(['prix', 'price']),
-      condition: column(['etat', 'condition', 'statut']),
-      description: column(['description', 'details', 'specifications']),
-      photo: column(['photo', 'image', 'photo url', 'url photo', 'url image', 'lien photo', 'lien de la photo', 'photo (url)', 'image url']),
-      available: column(['disponible', 'disponibilite', 'available', 'en vente'])
-    };
-    if (columns.name < 0 || columns.price < 0) {
-      throw new Error(`Colonnes reçues : ${headers.join(' | ') || 'aucune'}`);
-    }
-
-    const products = rows.slice(1).map((row, index) => ({
-      name: cell(row, columns.name),
-      category: cell(row, columns.category) || 'ARTICLE',
-      price: cell(row, columns.price),
-      condition: cell(row, columns.condition),
-      description: cell(row, columns.description),
-      photo: cell(row, columns.photo),
-      available: cell(row, columns.available),
-      index
-    })).filter((product) => product.name && product.price && isAvailable(product.available));
+    const products = (await response.json()).map((product, index) => ({ ...product, index }));
 
     productGrid.replaceChildren();
     if (!products.length) {
@@ -52,81 +23,14 @@ async function loadCatalog() {
     const fragment = document.createDocumentFragment();
     products.forEach((product) => fragment.appendChild(createProductCard(product)));
     productGrid.appendChild(fragment);
-    if (message) message.textContent = columns.photo < 0
-      ? 'Les articles sont chargés, mais la feuille ne contient pas de colonne Photo reconnue. Nommez cette colonne « Photo ».'
-      : '';
+    if (message) message.textContent = '';
   } catch (error) {
-    console.error('Impossible de charger le catalogue Google Sheets :', error);
+    console.error('Impossible de charger le catalogue local :', error);
     productGrid.replaceChildren();
-    if (message) message.textContent = error.message.startsWith('Colonnes reçues :')
-      ? `La feuille est lue, mais ses en-têtes ne sont pas séparés correctement. ${error.message}`
-      : 'Le catalogue n’a pas pu être chargé. Vérifiez que la feuille est publiée au format CSV et que les colonnes Nom et Prix sont présentes.';
+    if (message) message.textContent = 'Le catalogue n’a pas pu être chargé. Actualisez la page dans quelques instants.';
   } finally {
     productGrid.setAttribute('aria-busy', 'false');
   }
-}
-
-function parseCsv(text) {
-  const firstLine = text.split(/\r?\n/, 1)[0] || '';
-  const candidates = [',', ';', '\t', '|'];
-  const delimiter = candidates.reduce((best, candidate) =>
-    countOutsideQuotes(firstLine, candidate) > countOutsideQuotes(firstLine, best) ? candidate : best, ',');
-  const rows = [];
-  let row = [];
-  let value = '';
-  let quoted = false;
-
-  for (let index = 0; index < text.length; index += 1) {
-    const char = text[index];
-    if (char === '"' && quoted && text[index + 1] === '"') {
-      value += '"';
-      index += 1;
-    } else if (char === '"') {
-      quoted = !quoted;
-    } else if (char === delimiter && !quoted) {
-      row.push(value.trim());
-      value = '';
-    } else if ((char === '\n' || char === '\r') && !quoted) {
-      if (char === '\r' && text[index + 1] === '\n') index += 1;
-      row.push(value.trim());
-      if (row.some((item) => item !== '')) rows.push(row);
-      row = [];
-      value = '';
-    } else {
-      value += char;
-    }
-  }
-  row.push(value.trim());
-  if (row.some((item) => item !== '')) rows.push(row);
-  return rows;
-}
-
-function countOutsideQuotes(text, delimiter) {
-  let count = 0;
-  let quoted = false;
-  for (let index = 0; index < text.length; index += 1) {
-    if (text[index] === '"' && text[index + 1] === '"' && quoted) {
-      index += 1;
-    } else if (text[index] === '"') {
-      quoted = !quoted;
-    } else if (text[index] === delimiter && !quoted) {
-      count += 1;
-    }
-  }
-  return count;
-}
-
-function normalizeHeader(value) {
-  return value.trim().replace(/^\|+|\|+$/g, '').trim().toLocaleLowerCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
-}
-
-function cell(row, index) {
-  return index < 0 ? '' : (row[index] || '').trim();
-}
-
-function isAvailable(value) {
-  const normalized = normalizeHeader(value);
-  return !['non', 'non disponible', 'vendu', 'indisponible', 'no', 'false'].includes(normalized);
 }
 
 function createProductCard(product) {
@@ -212,6 +116,9 @@ function createProductCard(product) {
 }
 
 function normalizePhotoUrl(value) {
+  if (typeof value === 'string' && value.startsWith('/')) {
+    return { link: value, image: value, fallback: '' };
+  }
   const raw = value.trim();
   if (!raw) return null;
   const match = raw.match(/https?:\/\/[^\s"'<>]+/i);

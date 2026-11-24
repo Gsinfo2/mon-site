@@ -181,6 +181,8 @@ main { width: 100%; }
 .contact-details a { color: var(--orange-light); font-weight: 800; }
 .contact-details span { color: var(--muted); font-size: .92rem; }
 footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 86px; border-top: 1px solid var(--line); color: var(--muted); font-size: .88rem; }
+.admin-fab { position: fixed; right: 20px; bottom: 20px; z-index: 20; display: grid; width: 52px; height: 52px; place-items: center; border: 1px solid var(--orange); border-radius: 50%; background: #0b2021; color: var(--orange); box-shadow: 0 10px 30px rgba(0,0,0,.35); font-size: 1.35rem; }
+.admin-fab:hover { background: var(--orange); color: #17100c; }
 
 @media (max-width: 800px) {
   .topbar { flex-wrap: wrap; gap: 12px; padding: 12px 24px; }

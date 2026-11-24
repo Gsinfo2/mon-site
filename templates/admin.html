@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gérer les articles — GSINFO</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .admin-wrap { width: min(1100px, calc(100% - 36px)); margin: 40px auto 80px; }
+    .admin-head { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+    .admin-form, .admin-list { margin-top:24px; padding:24px; border:1px solid var(--line); border-radius:16px; background:var(--panel); }
+    .form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+    .admin-form label { display:block; color:var(--muted); font-size:.85rem; }
+    .admin-form input, .admin-form textarea { width:100%; margin-top:6px; padding:11px; border:1px solid var(--line); border-radius:8px; background:#071113; color:var(--white); }
+    .admin-form textarea { min-height:90px; }
+    .full { grid-column:1/-1; }
+    .checkbox { display:flex!important; align-items:center; gap:8px; }
+    .checkbox input { width:auto; }
+    .admin-row { display:grid; grid-template-columns:72px 1fr auto; align-items:center; gap:14px; padding:14px 0; border-bottom:1px solid var(--line); }
+    .admin-row img { width:72px; height:72px; object-fit:cover; border-radius:8px; }
+    .row-actions { display:flex; gap:8px; }
+    .row-actions form { margin:0; }
+    @media(max-width:600px) { .form-grid { grid-template-columns:1fr; } .admin-row { grid-template-columns:60px 1fr; } .row-actions { grid-column:1/-1; } }
+  </style>
+</head>
+<body>
+  <main class="admin-wrap">
+    <header class="admin-head">
+      <div><p class="eyebrow">ESPACE PRIVE</p><h1>Gérer les articles</h1></div>
+      <div><a class="button secondary" href="/">Voir le site</a> <a class="button secondary" href="/admin/logout">Quitter</a></div>
+    </header>
+
+    <form class="admin-form" method="post" action="/admin/products" enctype="multipart/form-data">
+      <div class="form-grid">
+        <label>Nom<input name="name" required></label>
+        <label>Catégorie<input name="category" value="ARTICLE"></label>
+        <label>Prix<input name="price" required placeholder="650 DT"></label>
+        <label>État<input name="condition" placeholder="Bon état / Batterie HS"></label>
+        <label class="full">Description<textarea name="description"></textarea></label>
+        <label class="full">Photo (PNG, JPG ou WEBP)<input name="photo" type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"></label>
+        <label class="checkbox full"><input name="available" type="checkbox" checked> Article disponible</label>
+        <button class="button primary" type="submit">Ajouter l’article</button>
+      </div>
+    </form>
+
+    <section class="admin-list">
+      {% for product in products %}
+      <article class="admin-row">
+        {% if product.photo %}
+          {% set photo_url = '/uploads/' + product.photo if '/' not in product.photo else '/' + product.photo %}
+          {% if product.photo in ['asus-x-series.png','macbook-pro-2011.jpg'] %}
+            {% set photo_url = '/' + product.photo %}
+          {% endif %}
+          <img src="{{ photo_url }}" alt="{{ product.name }}">
+        {% else %}
+          <div></div>
+        {% endif %}
+        <div><strong>{{ product.name }}</strong><br><span>{{ product.price }} · {{ 'Disponible' if product.available else 'Masqué' }}</span></div>
+        <div class="row-actions">
+          <form method="post" action="/admin/products/{{ product.id }}/availability"><button class="small-button" type="submit">{{ 'Masquer' if product.available else 'Afficher' }}</button></form>
+          <form method="post" action="/admin/products/{{ product.id }}/delete" onsubmit="return confirm('Supprimer cet article ?')"><button class="small-button" type="submit">Supprimer</button></form>
+        </div>
+      </article>
+      {% else %}
+      <p>Aucun article.</p>
+      {% endfor %}
+    </section>
+  </main>
+</body>
+</html>
