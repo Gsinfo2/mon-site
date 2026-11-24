@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Espace privé — GSINFO</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .admin-wrap{width:min(1000px,calc(100% - 36px));margin:40px auto 80px}
+    .admin-head{display:flex;align-items:center;justify-content:space-between;gap:14px}
+    .admin-panel{margin-top:24px;padding:24px;border:1px solid var(--line);border-radius:16px;background:var(--panel)}
+    .admin-panel input,.admin-panel textarea{width:100%;margin-top:6px;padding:11px;border:1px solid var(--line);border-radius:8px;background:#071113;color:var(--white)}
+    .admin-panel label{display:block;color:var(--muted);font-size:.9rem}
+    .admin-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    .admin-full{grid-column:1/-1}
+    .admin-panel textarea{min-height:90px}
+    .admin-check{display:flex!important;align-items:center;gap:8px}
+    .admin-check input{width:auto}
+    .admin-row{display:grid;grid-template-columns:72px 1fr auto;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--line)}
+    .admin-row img{width:72px;height:72px;object-fit:cover;border-radius:8px}
+    .admin-actions{display:flex;gap:8px}
+    .admin-actions button{cursor:pointer}
+    .admin-error{color:#ff9b91}
+    @media(max-width:600px){.admin-form-grid{grid-template-columns:1fr}.admin-row{grid-template-columns:60px 1fr}.admin-actions{grid-column:1/-1}}
+  </style>
+</head>
+<body>
+  <main class="admin-wrap">
+    <header class="admin-head">
+      <div><p class="eyebrow">ESPACE PRIVE</p><h1>Gérer les articles</h1></div>
+      <a class="button secondary" href="/">Retour au site</a>
+    </header>
+    <p id="admin-status" role="status" aria-live="polite"></p>
+    <section class="admin-panel" id="login-panel" hidden>
+      <h2>Connexion</h2>
+      <form id="login-form">
+        <label for="password">Mot de passe administrateur</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <p id="login-error" class="admin-error" role="alert"></p>
+        <button class="button primary" type="submit">Se connecter</button>
+      </form>
+    </section>
+    <section id="manager" hidden>
+      <form class="admin-panel" id="product-form">
+        <h2>Ajouter un article</h2>
+        <div class="admin-form-grid">
+          <label>Nom<input name="name" maxlength="160" required></label>
+          <label>Catégorie<input name="category" value="ARTICLE" maxlength="80"></label>
+          <label>Prix<input name="price" maxlength="40" placeholder="650 DT" required></label>
+          <label>État<input name="condition" maxlength="120" placeholder="Bon état / Batterie HS"></label>
+          <label class="admin-full">Description<textarea name="description" maxlength="2000"></textarea></label>
+          <label class="admin-full">Photo (PNG, JPG ou WEBP, 10 Mo max.)
+            <input name="photo" type="file" accept="image/png,image/jpeg,image/webp">
+          </label>
+          <label class="admin-check admin-full"><input name="available" type="checkbox" checked> Article disponible</label>
+          <button class="button primary" type="submit">Ajouter l’article</button>
+        </div>
+      </form>
+      <section class="admin-panel">
+        <h2>Articles</h2>
+        <div id="product-list"></div>
+      </section>
+      <button class="button secondary" id="logout" type="button">Se déconnecter</button>
+    </section>
+  </main>
+  <script src="/admin.js"></script>
+</body>
+</html>
