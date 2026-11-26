@@ -76,7 +76,7 @@ function createProductCard(product) {
       photoLink.replaceChildren();
       photoLink.removeAttribute('href');
       photoLink.classList.add('photo-unavailable');
-      photoLink.textContent = 'Photo inaccessible — vérifiez le partage du fichier Drive';
+      photoLink.textContent = 'Photo inaccessible — vérifiez que le fichier est encore disponible.';
       console.warn(`Photo non chargée pour « ${product.name} »:`, photo.image);
     };
     photoLink.appendChild(image);
